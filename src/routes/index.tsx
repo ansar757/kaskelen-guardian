@@ -1,12 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
+import { ClientOnly } from "@tanstack/react-router";
 import { Sidebar, type ModuleId } from "@/components/dashboard/Sidebar";
 import { TopBar, type AlertLevel } from "@/components/dashboard/TopBar";
-import { MapView } from "@/components/dashboard/MapView";
 import { FloodPanel } from "@/components/dashboard/FloodPanel";
 import { PowerPanel } from "@/components/dashboard/PowerPanel";
 import { WaterPanel } from "@/components/dashboard/WaterPanel";
 import { SUBSTATIONS, RIVER_PATH, floodImpact } from "@/lib/mockData";
+
+const MapView = lazy(() =>
+  import("@/components/dashboard/MapView").then((m) => ({ default: m.MapView }))
+);
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -15,8 +19,10 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Интерактивная панель управления рисками для г. Каскелен: паводки, энергосети, водоснабжение." },
     ],
   }),
+  ssr: false,
   component: Dashboard,
 });
+
 
 function distMeters(a: [number, number], b: [number, number]) {
   const R = 6371000;
@@ -65,18 +71,23 @@ function Dashboard() {
 
         {/* Map area */}
         <main className="flex-1 relative min-w-0">
-          <MapView
-            module={module}
-            floodLevel={floodLevel}
-            showEvac={showEvac}
-            selectedPower={selectedPower}
-            setSelectedPower={setSelectedPower}
-            floodedSubstationIds={floodedSubstationIds}
-            waterSummer={waterSummer}
-            placingBuilding={placing}
-            buildingMarker={buildingMarker}
-            onPlaceBuilding={(c) => { setBuildingMarker(c); setPlacing(false); }}
-          />
+          <ClientOnly fallback={<div className="absolute inset-0 grid place-items-center text-muted-foreground text-sm">Загрузка карты…</div>}>
+            <Suspense fallback={<div className="absolute inset-0 grid place-items-center text-muted-foreground text-sm">Загрузка карты…</div>}>
+              <MapView
+                module={module}
+                floodLevel={floodLevel}
+                showEvac={showEvac}
+                selectedPower={selectedPower}
+                setSelectedPower={setSelectedPower}
+                floodedSubstationIds={floodedSubstationIds}
+                waterSummer={waterSummer}
+                placingBuilding={placing}
+                buildingMarker={buildingMarker}
+                onPlaceBuilding={(c) => { setBuildingMarker(c); setPlacing(false); }}
+              />
+            </Suspense>
+          </ClientOnly>
+
 
           {/* Floating right panel */}
           <div className="absolute top-4 right-4 bottom-4 w-[340px] z-[500] pointer-events-none">
