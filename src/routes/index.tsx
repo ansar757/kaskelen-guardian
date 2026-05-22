@@ -71,18 +71,23 @@ function Dashboard() {
 
         {/* Map area */}
         <main className="flex-1 relative min-w-0">
-          <MapView
-            module={module}
-            floodLevel={floodLevel}
-            showEvac={showEvac}
-            selectedPower={selectedPower}
-            setSelectedPower={setSelectedPower}
-            floodedSubstationIds={floodedSubstationIds}
-            waterSummer={waterSummer}
-            placingBuilding={placing}
-            buildingMarker={buildingMarker}
-            onPlaceBuilding={(c) => { setBuildingMarker(c); setPlacing(false); }}
-          />
+          <ClientOnly fallback={<div className="absolute inset-0 grid place-items-center text-muted-foreground text-sm">Загрузка карты…</div>}>
+            <Suspense fallback={<div className="absolute inset-0 grid place-items-center text-muted-foreground text-sm">Загрузка карты…</div>}>
+              <MapView
+                module={module}
+                floodLevel={floodLevel}
+                showEvac={showEvac}
+                selectedPower={selectedPower}
+                setSelectedPower={setSelectedPower}
+                floodedSubstationIds={floodedSubstationIds}
+                waterSummer={waterSummer}
+                placingBuilding={placing}
+                buildingMarker={buildingMarker}
+                onPlaceBuilding={(c) => { setBuildingMarker(c); setPlacing(false); }}
+              />
+            </Suspense>
+          </ClientOnly>
+
 
           {/* Floating right panel */}
           <div className="absolute top-4 right-4 bottom-4 w-[340px] z-[500] pointer-events-none">
