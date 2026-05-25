@@ -6,6 +6,7 @@ import { TopBar, type AlertLevel } from "@/components/dashboard/TopBar";
 import { FloodPanel } from "@/components/dashboard/FloodPanel";
 import { PowerPanel } from "@/components/dashboard/PowerPanel";
 import { WaterPanel } from "@/components/dashboard/WaterPanel";
+import { MapErrorBoundary } from "@/components/dashboard/MapErrorBoundary";
 import { SUBSTATIONS, RIVER_PATH, floodImpact } from "@/lib/mockData";
 
 const MapView = lazy(() =>
