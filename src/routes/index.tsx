@@ -6,6 +6,7 @@ import { TopBar, type AlertLevel } from "@/components/dashboard/TopBar";
 import { FloodPanel } from "@/components/dashboard/FloodPanel";
 import { PowerPanel } from "@/components/dashboard/PowerPanel";
 import { WaterPanel } from "@/components/dashboard/WaterPanel";
+import { MapErrorBoundary } from "@/components/dashboard/MapErrorBoundary";
 import { SUBSTATIONS, RIVER_PATH, floodImpact } from "@/lib/mockData";
 
 const MapView = lazy(() =>
@@ -73,18 +74,20 @@ function Dashboard() {
         <main className="flex-1 relative min-w-0">
           <ClientOnly fallback={<div className="absolute inset-0 grid place-items-center text-muted-foreground text-sm">Загрузка карты…</div>}>
             <Suspense fallback={<div className="absolute inset-0 grid place-items-center text-muted-foreground text-sm">Загрузка карты…</div>}>
-              <MapView
-                module={module}
-                floodLevel={floodLevel}
-                showEvac={showEvac}
-                selectedPower={selectedPower}
-                setSelectedPower={setSelectedPower}
-                floodedSubstationIds={floodedSubstationIds}
-                waterSummer={waterSummer}
-                placingBuilding={placing}
-                buildingMarker={buildingMarker}
-                onPlaceBuilding={(c) => { setBuildingMarker(c); setPlacing(false); }}
-              />
+              <MapErrorBoundary>
+                <MapView
+                  module={module}
+                  floodLevel={floodLevel}
+                  showEvac={showEvac}
+                  selectedPower={selectedPower}
+                  setSelectedPower={setSelectedPower}
+                  floodedSubstationIds={floodedSubstationIds}
+                  waterSummer={waterSummer}
+                  placingBuilding={placing}
+                  buildingMarker={buildingMarker}
+                  onPlaceBuilding={(c) => { setBuildingMarker(c); setPlacing(false); }}
+                />
+              </MapErrorBoundary>
             </Suspense>
           </ClientOnly>
 
