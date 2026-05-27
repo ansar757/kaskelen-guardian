@@ -1,11 +1,10 @@
-import { Droplets, Zap, Waves } from "lucide-react";
+import { Droplets, Waves } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-export type ModuleId = "flood" | "power" | "water";
+export type ModuleId = "flood" | "water";
 
 const MODULES: { id: ModuleId; label: string; sub: string; Icon: LucideIcon }[] = [
   { id: "flood", label: "Паводки и ЧС", sub: "Flood & Emergency", Icon: Droplets },
-  { id: "power", label: "Энергосети", sub: "Power Grid", Icon: Zap },
   { id: "water", label: "Водоснабжение", sub: "Water Supply", Icon: Waves },
 ];
 

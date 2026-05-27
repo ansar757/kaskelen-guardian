@@ -1,26 +1,25 @@
 import { useEffect, useMemo } from "react";
-import { MapContainer, TileLayer, Polyline, CircleMarker, Marker, Popup, Circle, useMap, useMapEvents } from "react-leaflet";
-import L from "leaflet";
+import { MapContainer, TileLayer, Polyline, Polygon, CircleMarker, Marker, Popup, Circle, useMap, useMapEvents } from "react-leaflet";
 import {
   CITY_CENTER,
   RIVER_PATH,
-  SUBSTATIONS,
   SAFE_POINTS,
   EVAC_ROUTES,
   PRESSURE_ZONES_NORMAL,
   PRESSURE_ZONES_SUMMER,
-  type Substation,
+  FLOOD_ZONE_WARNING,
+  FLOOD_ZONE_DANGER,
+  ORGANIZATIONS,
 } from "@/lib/mockData";
-import { tpIcon, psIcon, safeIcon, buildingIcon } from "./icons";
+import { safeIcon, buildingIcon, orgIcon } from "./icons";
 import type { ModuleId } from "./Sidebar";
 
 type Props = {
   module: ModuleId;
   floodLevel: number;
   showEvac: boolean;
-  selectedPower: string | null;
-  setSelectedPower: (id: string | null) => void;
-  floodedSubstationIds: string[];
+  selectedOrgId: string | null;
+  setSelectedOrgId: (id: string | null) => void;
   waterSummer: boolean;
   placingBuilding: boolean;
   buildingMarker: [number, number] | null;
@@ -47,21 +46,28 @@ function CursorSetter({ placing }: { placing: boolean }) {
 
 export function MapView(props: Props) {
   const {
-    module, floodLevel, showEvac, selectedPower, setSelectedPower,
-    floodedSubstationIds, waterSummer, placingBuilding, buildingMarker, onPlaceBuilding,
+    module, floodLevel, showEvac, selectedOrgId, setSelectedOrgId,
+    waterSummer, placingBuilding, buildingMarker, onPlaceBuilding,
   } = props;
 
-  // Flood overlay: render polyline along river with width derived from level
-  const floodWeight = useMemo(() => 8 + floodLevel * 22, [floodLevel]);
-  const floodOpacity = useMemo(() => Math.min(0.65, 0.15 + floodLevel * 0.11), [floodLevel]);
+  const tier: "normal" | "warning" | "danger" =
+    floodLevel < 1.5 ? "normal" : floodLevel < 3.5 ? "warning" : "danger";
 
-  // Outage area for selected substation
-  const outage = useMemo(() => {
-    if (module !== "power" || !selectedPower) return null;
-    const s = SUBSTATIONS.find((x) => x.id === selectedPower);
-    if (!s) return null;
-    return { center: s.coords, radius: s.type === "PS" ? 1800 : 600 };
-  }, [module, selectedPower]);
+  // Danger polygon opacity scales within 3.5–5
+  const dangerOpacity = useMemo(() => {
+    if (tier !== "danger") return 0;
+    const t = Math.min(1, (floodLevel - 3.5) / 1.5);
+    return 0.28 + 0.22 * t;
+  }, [tier, floodLevel]);
+
+  const warningOpacity = useMemo(() => {
+    if (tier === "normal") return 0;
+    if (tier === "warning") {
+      const t = (floodLevel - 1.5) / 2;
+      return 0.25 + 0.20 * t;
+    }
+    return 0.35;
+  }, [tier, floodLevel]);
 
   const pressureZones = waterSummer ? PRESSURE_ZONES_SUMMER : PRESSURE_ZONES_NORMAL;
 
@@ -87,28 +93,39 @@ export function MapView(props: Props) {
         pathOptions={{ color: "#38bdf8", weight: 4, opacity: 0.55 }}
       />
 
-      {/* Flood overlay (module 1, also visible faintly when level > 0 in other modules for cross-alerts) */}
-      {floodLevel > 0 && (
-        <Polyline
-          positions={RIVER_PATH}
+      {/* Flood zones — module 1 only */}
+      {module === "flood" && tier !== "normal" && (
+        <Polygon
+          positions={FLOOD_ZONE_WARNING}
           pathOptions={{
-            color: "#06b6d4",
-            weight: floodWeight,
-            opacity: floodOpacity,
-            lineCap: "round",
-            lineJoin: "round",
+            color: "#38bdf8",
+            weight: 1,
+            fillColor: "#38bdf8",
+            fillOpacity: warningOpacity,
+          }}
+        />
+      )}
+      {module === "flood" && tier === "danger" && (
+        <Polygon
+          positions={FLOOD_ZONE_DANGER}
+          pathOptions={{
+            color: "#0ea5e9",
+            weight: 1.5,
+            dashArray: "4 4",
+            fillColor: "#0ea5e9",
+            fillOpacity: dangerOpacity,
           }}
         />
       )}
 
-      {/* Module 1: evacuation */}
-      {module === "flood" && showEvac && (
+      {/* Evacuation — only meaningful when flood > 2.5m */}
+      {module === "flood" && showEvac && floodLevel > 2.5 && (
         <>
           {EVAC_ROUTES.map((route, i) => (
             <Polyline
               key={i}
               positions={route}
-              pathOptions={{ color: "#22c55e", weight: 4, opacity: 0.9, dashArray: "8 6" }}
+              pathOptions={{ color: "#22c55e", weight: 5, opacity: 0.95, dashArray: "8 6", lineCap: "round" }}
             />
           ))}
           {SAFE_POINTS.map((p) => (
@@ -119,39 +136,17 @@ export function MapView(props: Props) {
         </>
       )}
 
-      {/* Module 2: substations */}
-      {module === "power" && SUBSTATIONS.map((s: Substation) => {
-        const flooded = floodedSubstationIds.includes(s.id);
-        const icon = s.type === "PS" ? psIcon() : tpIcon(flooded);
-        return (
-          <Marker
-            key={s.id}
-            position={s.coords}
-            icon={icon}
-            eventHandlers={{ click: () => setSelectedPower(s.id) }}
-          >
-            <Popup>
-              <div className="space-y-1">
-                <div className="font-semibold">{s.name}</div>
-                <div>Мощность: {s.capacity}</div>
-                <div>Домохозяйств: {s.households.toLocaleString("ru-RU")}</div>
-                <div>Статус: {flooded ? "⚠ затопление" : "норма"}</div>
-              </div>
-            </Popup>
-          </Marker>
-        );
-      })}
-
-      {/* Outage zone */}
-      {outage && (
-        <Circle
-          center={outage.center}
-          radius={outage.radius}
-          pathOptions={{ color: "#1f2937", fillColor: "#0f172a", fillOpacity: 0.55, weight: 1 }}
+      {/* Organizations — clickable in flood module */}
+      {module === "flood" && ORGANIZATIONS.map((o) => (
+        <Marker
+          key={o.id}
+          position={o.coords}
+          icon={orgIcon(selectedOrgId === o.id)}
+          eventHandlers={{ click: () => setSelectedOrgId(o.id) }}
         />
-      )}
+      ))}
 
-      {/* Module 3: pressure heatmap (using circle markers) */}
+      {/* Module 2: pressure heatmap */}
       {module === "water" && pressureZones.map(([lat, lng, v], i) => {
         const color = v > 0.7 ? "#ef4444" : v > 0.4 ? "#eab308" : "#22c55e";
         return (
